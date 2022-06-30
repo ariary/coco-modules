@@ -3,34 +3,38 @@ package module
 import (
 	"bufio"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
 
 	client "github.com/ariary/coco-modules/pkg/ipc"
-	"github.com/ariary/coco/pkg/c2c"
+	"github.com/ariary/coco/pkg/agent"
 	ipc "github.com/james-barrow/golang-ipc"
 )
 
 type Module interface {
 	//Work: the payload of your module
-	Work(params []c2c.Params, output chan string)
-	//Getname: return the module's name
+	Work(params []agent.Params, output chan string)
+	//GetName: return the module's name
 	GetName() string
+	//GetPrefix: return prefix for output purpose
+	GetPrefix() string
 }
 
 //Work: the payload of your module
-func Work(module Module, params []c2c.Params, output chan string) {
+func Work(module Module, params []agent.Params, output chan string) {
 	module.Work(params, output)
 }
 
 //ConnectToAgent: Retrive socket name, and connect to it, then send message to announce the connection
 func ConnectToAgent(socket string) (cc *ipc.Client, err error) {
 	//Get socket name
-	flag.StringVar(&socket, "socket", "", "provide socket name for ipc communication")
-	flag.Parse()
+	// flag.StringVar(&socket, "socket", "", "provide socket name for ipc communication")
+	// flag.Parse()
 
+	// if socket == "" {
+	// 	//try envvar
+	socket = os.Getenv(agent.COCO_SOCKET_ENVVAR)
 	if socket == "" {
 		//try from stdin
 		reader := bufio.NewReader(os.Stdin)
@@ -40,6 +44,7 @@ func ConnectToAgent(socket string) (cc *ipc.Client, err error) {
 			socket = input[:len(input)-1]
 		}
 	}
+	// }
 	//start ipc client
 	cc, err = ipc.StartClient(socket, nil)
 	if err != nil {
@@ -52,16 +57,16 @@ func ConnectToAgent(socket string) (cc *ipc.Client, err error) {
 func WaitConnectionValidation(cc *ipc.Client, module Module) {
 	for {
 		//confirm connection
-		client.CheckSendMessage(cc, c2c.CONNECTION_KEYWORD+":"+module.GetName())
+		client.CheckSendMessage(cc, agent.CONNECTION_KEYWORD+":"+module.GetName())
 		msg, err := cc.Read()
 		if err == nil {
 			msgStr := string(msg.Data)
-			if strings.HasPrefix(msgStr, c2c.LOADED_KEYWORD) {
-				fmt.Println("⏳ connected to agent, wait instruction...")
+			if strings.HasPrefix(msgStr, agent.LOADED_KEYWORD) {
+				fmt.Println(module.GetPrefix(), "⏳ connected to agent, wait instruction...")
 				return
 			}
 		} else {
-			fmt.Println("Error while receiving ipc message:", err)
+			fmt.Println(module.GetPrefix(), "Error while receiving ipc message:", err)
 		}
 	}
 }
@@ -71,23 +76,23 @@ func WaitInstruction(cc *ipc.Client, module Module) {
 	for {
 		msg, err := cc.Read()
 		if err == nil {
-			instr := c2c.Instruction{}
+			instr := agent.Instruction{}
 			if err := json.Unmarshal([]byte(msg.Data), &instr); err != nil {
-				fmt.Println(err, "\nclient do not received instruction but:\"", string(msg.Data), "\"")
+				fmt.Println(module.GetPrefix(), err, "\nclient do not received instruction but:\"", string(msg.Data), "\"")
 			}
 			switch instr.Type {
-			case c2c.Run:
+			case agent.Run:
 				output := make(chan string)
-				// client.CheckSendMessage(cc, c2c.INSTR_OK)
+				// client.CheckSendMessage(cc, agent.INSTR_OK)
 				go Work(module, instr.Params, output)
 				client.CheckSendMessage(cc, <-output)
-			case c2c.Kill:
-				client.CheckSendMessage(cc, c2c.INSTR_OK)
+			case agent.Kill:
+				client.CheckSendMessage(cc, agent.INSTR_OK)
 				os.Exit(0)
 			}
 
 		} else {
-			fmt.Println("Error while receiving ipc message:", err)
+			fmt.Println(module.GetPrefix(), "Error while receiving ipc message:", err)
 		}
 	}
 }

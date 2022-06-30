@@ -14,6 +14,7 @@ It has to implement:
     * `output`: used to send back data to `coco-agent`
     * It is the core of the module, put the payload there
 * `GetName()`: return the name of the module
+* `GetPrefix`: for output purpose
 
 2. Build executable from module:
 ```golang
