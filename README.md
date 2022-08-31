@@ -40,6 +40,6 @@ Then compile it to fit the target requirmeents (OS, etc)
 
 ## Available Modules:
 * [x] hello
-* [] wallpaper: change wallpaper
-* [] desktop: write ofile on desktop
+* [ ] wallpaper: change wallpaper
+* [ ] desktop: write file on desktop
 ...
