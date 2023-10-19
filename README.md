@@ -34,7 +34,7 @@ func main() {
 	module.WaitInstruction(cc, module)
 }
 ```
-Then compile it to fit the target requirmeents (OS, etc)
+Then compile it to fit the target requirements (OS, etc)
 
 **Your module is ready**
 
